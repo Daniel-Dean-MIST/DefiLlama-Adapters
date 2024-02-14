@@ -1,9 +1,11 @@
 const sdk = require("@defillama/sdk");
 const { aaveChainTvl } = require('../helper/aave');
+const { aaveChainTvl2 } = require('../helper/aave');
 
 function v2(chain, v2Registry){
   const section = borrowed => sdk.util.sumChainTvls([
     aaveChainTvl(chain, v2Registry, undefined, undefined, borrowed),
+    // aaveChainTvl2(chain, v2Registry, undefined, undefined, borrowed),
   ])
   return {
     tvl: section(false),

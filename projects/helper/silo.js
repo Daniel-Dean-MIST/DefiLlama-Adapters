@@ -18,17 +18,18 @@ async function getV2Reserves(block, addressesProviderRegistry, chain, dataHelper
       })
     ).output;
 
-    const protocolDataHelpers = (
-      await sdk.api.abi.multiCall({
-        calls: addressesProviders.map((provider) => ({
-          target: provider,
-          params: "0x0100000000000000000000000000000000000000000000000000000000000000",
-        })),
-        abi: abi["getAddress"],
-        block,
-        chain
-      })
-    ).output;
+    const protocolDataHelpers = 
+    [
+        {
+          input: {
+            params: [Array],
+            target: '0xcD2f1565e6d2A83A167FDa6abFc10537d4e984f0'
+          },
+          success: true,
+          output: '0x880E6AB36a211629770305C78577a7362be13021'
+        }
+      ];
+    
     console.log('____________________________________________________________________')
     console.log('protocolDataHelpers: ', protocolDataHelpers)
     console.log('____________________________________________________________________')
@@ -106,10 +107,30 @@ async function getBorrowed(balances, block, chain, v2ReserveTokens, dataHelper, 
   })
 }
 
+async function aaveChainTvl2(chain, addressesProviderRegistry, transformAddressRaw, dataHelperAddresses, borrowed, v3 = false, { abis = {}, oracle, blacklistedTokens = [], } = {}){
+  const balances = {}
+  const { transformAddress, fixBalances, v2Atokens, v2ReserveTokens, dataHelper, updateBalances } = await getData({ oracle, chain, block, addressesProviderRegistry, dataHelperAddresses, transformAddressRaw, abis, })
+  console.log(v2Atokens);
+}
+
 function aaveChainTvl(chain, addressesProviderRegistry, transformAddressRaw, dataHelperAddresses, borrowed, v3 = false, { abis = {}, oracle, blacklistedTokens = [], } = {}) {
   return async (timestamp, ethBlock, { [chain]: block }) => {
     const balances = {}
     const { transformAddress, fixBalances, v2Atokens, v2ReserveTokens, dataHelper, updateBalances } = await getData({ oracle, chain, block, addressesProviderRegistry, dataHelperAddresses, transformAddressRaw, abis, })
+    console.log('oracle: ', oracle);
+    console.log('chain: ', chain);
+    console.log('block: ', block);
+    console.log('addressesProviderRegistry: ', addressesProviderRegistry);
+    console.log('dataHelperAddresses: ', dataHelperAddresses);
+    console.log('transformAddressRaw: ', transformAddressRaw);
+    console.log('abis: ', abis);
+
+    console.log('transformAddress: ', transformAddress);
+    console.log('fixBalances: ', v2Atokens);
+    console.log('v2ReserveTokens: ', v2ReserveTokens);
+    console.log('dataHelper: ', dataHelper);
+    console.log('updateBalances: ', updateBalances);
+
     if (borrowed) {
       await getBorrowed(balances, block, chain, v2ReserveTokens, dataHelper, transformAddress, v3);
     } else {
@@ -130,11 +151,14 @@ function aaveExports(chain, addressesProviderRegistry, transform = undefined, da
   return {
     tvl: aaveChainTvl(chain, addressesProviderRegistry, transform, dataHelpers, false, v3, { oracle, abis, blacklistedTokens, }),
     borrowed: aaveChainTvl(chain, addressesProviderRegistry, transform, dataHelpers, true, v3, { oracle, abis, })
+    // tvl: aaveChainTvl2(chain, addressesProviderRegistry, transform, dataHelpers, false, v3, { oracle, abis, blacklistedTokens, }),
+    // borrowed: aaveChainTvl2(chain, addressesProviderRegistry, transform, dataHelpers, true, v3, { oracle, abis, })
   }
 }
 
 module.exports = {
   aaveChainTvl,
+  // aaveChainTvl2,
   getV2Reserves,
   getTvl,
   aaveExports,
@@ -239,6 +263,8 @@ function aaveV2Export(registry, { useOracle = false, baseCurrency, baseCurrencyU
 
       const addressProvider = await api.call({ abi: abiv2.getAddressesProvider, target: registry })
       const oracle = await api.call({ abi: abiv2.getPriceOracle, target: addressProvider })
+      console.log('addressProvider: ', addressProvider);
+      console.log('oracle: ', oracle);
 
       if (!currency) currency = await api.call({ abi: abiv2.BASE_CURRENCY, target: oracle })
       if (!unit) unit = await api.call({ abi: abiv2.BASE_CURRENCY_UNIT, target: oracle })
