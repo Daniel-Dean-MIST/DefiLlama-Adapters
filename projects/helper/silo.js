@@ -18,21 +18,17 @@ async function getV2Reserves(block, addressesProviderRegistry, chain, dataHelper
       })
     ).output;
 
-    const protocolDataHelpers = 
-    [
-        {
-          input: {
-            params: [Array],
-            target: '0xcD2f1565e6d2A83A167FDa6abFc10537d4e984f0'
-          },
-          success: true,
-          output: '0x880E6AB36a211629770305C78577a7362be13021'
-        }
-      ];
-    
-    console.log('____________________________________________________________________')
-    console.log('protocolDataHelpers: ', protocolDataHelpers)
-    console.log('____________________________________________________________________')
+    const protocolDataHelpers = (
+      await sdk.api.abi.multiCall({
+        calls: addressesProviders.map((provider) => ({
+          target: provider,
+          params: "0x0100000000000000000000000000000000000000000000000000000000000000",
+        })),
+        abi: abi["getAddress"],
+        block,
+        chain
+      })
+    ).output;
 
     validProtocolDataHelpers = protocolDataHelpers.filter(
       (helper) =>
@@ -77,20 +73,105 @@ async function getV2Reserves(block, addressesProviderRegistry, chain, dataHelper
   return [aTokenAddresses, reserveAddresses, validProtocolDataHelpers[0]]
 }
 
+// gets how many borrowed tokens we have
+async function getBorrowedTvl(){
+
+
+}
+
 async function getTvl(balances, block, chain, v2Atokens, v2ReserveTokens, transformAddress) {
+
+  // console.log('____________________________________________________________________')
+  // console.log('v2Atokens: ', v2Atokens)
+  // console.log('____________________________________________________________________')
+
+  // console.log('____________________________________________________________________')
+  // console.log('v2ReserveTokens: ', v2ReserveTokens)
+  // console.log('____________________________________________________________________')
+
   const balanceOfUnderlying = await sdk.api.abi.multiCall({
     calls: v2Atokens.map((aToken, index) => ({
-      target: v2ReserveTokens[index],
-      params: aToken,
+      target: v2Atokens[index],
+      // params: aToken,
     })),
-    abi: "erc20:balanceOf",
+    // abi: "erc20:balanceOf",
+    // abi: abi['totalSupply'],
+    abi: "erc20:totalSupply",
     block,
     chain
   });
+
+  // remaps out target so it can be used in the rest of the script
+  balanceOfUnderlying.output.map((result, index) => {
+    var _a;
+    if (result.success) {
+        // const address = transformAddress(result.input.target);
+        // const balance = result.output;
+        result.input.target = v2ReserveTokens[index];
+      }});
+
+  const v2Vtokens = ["0x1951E664D75FD3e7af9Ac1F3626d5761ADE0F3E5", "0x844eF347d2c134323Ba95bFea0D39058B43126b6",
+  "0x66e64F46e9CFF257b8010757888e0ef6656cE789", "0x07533A4d2B8181ab9a7941e8B0f9fC60A9Bf5e84", "0xC47839FE1371Fff7b4c6f187B9AB61A1B16B8943"]
+  
+  const debtOfUnderlying = await sdk.api.abi.multiCall({
+    calls: v2Vtokens.map((aToken, index) => ({
+      target: v2Vtokens[index],
+      // params: aToken,
+    })),
+    // abi: "erc20:balanceOf",
+    // abi: abi['totalSupply'],
+    abi: "erc20:totalSupply",
+    block,
+    chain
+  });
+
+  balanceOfUnderlying.output.map((result, index) => {
+    var _a;
+    if (result.success) {
+        // const address = transformAddress(result.input.target);
+        // const balance = result.output;
+        result.input.target = v2ReserveTokens[index];
+        console.log('Result: ', result.output);
+        console.log('Index: ', index);
+        console.log('debtOfUnderlying', debtOfUnderlying.output[index].output);
+        // result.output = result.output.plus(debtOfUnderlying.output[index].output);
+        result.output = BigNumber(result.output).plus(debtOfUnderlying.output[index].output).toFixed(0);
+        console.log('New output: ', result.output);
+      }});
+  
+  //BigNumber(data.output.totalVariableDebt).plus(data.output.totalStableDebt).toFixed(0)
+
+  // console.log('____________________________________________________________________')
+  // console.log('debtOfUnderlying: ', debtOfUnderlying)
+  // console.log('____________________________________________________________________')
+
+  // console.log('____________________________________________________________________')
+  // console.log('balanceOfUnderlying: ', balanceOfUnderlying)
+  // console.log('____________________________________________________________________')
+
+
+  // console.log('____________________________________________________________________')
+  // console.log('v2ReserveTokens: ', v2ReserveTokens)
+  // console.log('____________________________________________________________________')
+
+  // console.log('____________________________________________________________________')
+  // console.log('v2Vtokens: ', v2Vtokens)
+  // console.log('____________________________________________________________________')
+
+    // console.log('____________________________________________________________________')
+    // console.log('Supplied v2ReserveTokens: ', v2ReserveTokens)
+    // console.log('____________________________________________________________________')
+
+
   sdk.util.sumMultiBalanceOf(balances, balanceOfUnderlying, true, transformAddress)
 }
 
 async function getBorrowed(balances, block, chain, v2ReserveTokens, dataHelper, transformAddress, v3 = false) {
+
+  // console.log('____________________________________________________________________')
+  // console.log('Borrowed v2ReserveTokens: ', v2ReserveTokens)
+  // console.log('____________________________________________________________________')
+
   const reserveData = await sdk.api.abi.multiCall({
     calls: v2ReserveTokens.map((token) => ({
       target: dataHelper,
@@ -105,32 +186,24 @@ async function getBorrowed(balances, block, chain, v2ReserveTokens, dataHelper, 
     const quantity = v3 ? data.output : BigNumber(data.output.totalVariableDebt).plus(data.output.totalStableDebt).toFixed(0)
     sdk.util.sumSingleBalance(balances, transformAddress(data.input.params[0]), quantity)
   })
+  // console.log('____________________________________________________________________')
+  // console.log('reserveData: ', reserveData.output)
+  // console.log('____________________________________________________________________')
+
+  // console.log('____________________________________________________________________')
+  // console.log('balances: ', balances)
+  // console.log('____________________________________________________________________')
+
+  
+
 }
 
-async function aaveChainTvl2(chain, addressesProviderRegistry, transformAddressRaw, dataHelperAddresses, borrowed, v3 = false, { abis = {}, oracle, blacklistedTokens = [], } = {}){
-  const balances = {}
-  const { transformAddress, fixBalances, v2Atokens, v2ReserveTokens, dataHelper, updateBalances } = await getData({ oracle, chain, block, addressesProviderRegistry, dataHelperAddresses, transformAddressRaw, abis, })
-  console.log(v2Atokens);
-}
+
 
 function aaveChainTvl(chain, addressesProviderRegistry, transformAddressRaw, dataHelperAddresses, borrowed, v3 = false, { abis = {}, oracle, blacklistedTokens = [], } = {}) {
   return async (timestamp, ethBlock, { [chain]: block }) => {
     const balances = {}
     const { transformAddress, fixBalances, v2Atokens, v2ReserveTokens, dataHelper, updateBalances } = await getData({ oracle, chain, block, addressesProviderRegistry, dataHelperAddresses, transformAddressRaw, abis, })
-    console.log('oracle: ', oracle);
-    console.log('chain: ', chain);
-    console.log('block: ', block);
-    console.log('addressesProviderRegistry: ', addressesProviderRegistry);
-    console.log('dataHelperAddresses: ', dataHelperAddresses);
-    console.log('transformAddressRaw: ', transformAddressRaw);
-    console.log('abis: ', abis);
-
-    console.log('transformAddress: ', transformAddress);
-    console.log('fixBalances: ', v2Atokens);
-    console.log('v2ReserveTokens: ', v2ReserveTokens);
-    console.log('dataHelper: ', dataHelper);
-    console.log('updateBalances: ', updateBalances);
-
     if (borrowed) {
       await getBorrowed(balances, block, chain, v2ReserveTokens, dataHelper, transformAddress, v3);
     } else {
@@ -151,14 +224,11 @@ function aaveExports(chain, addressesProviderRegistry, transform = undefined, da
   return {
     tvl: aaveChainTvl(chain, addressesProviderRegistry, transform, dataHelpers, false, v3, { oracle, abis, blacklistedTokens, }),
     borrowed: aaveChainTvl(chain, addressesProviderRegistry, transform, dataHelpers, true, v3, { oracle, abis, })
-    // tvl: aaveChainTvl2(chain, addressesProviderRegistry, transform, dataHelpers, false, v3, { oracle, abis, blacklistedTokens, }),
-    // borrowed: aaveChainTvl2(chain, addressesProviderRegistry, transform, dataHelpers, true, v3, { oracle, abis, })
   }
 }
 
 module.exports = {
   aaveChainTvl,
-  // aaveChainTvl2,
   getV2Reserves,
   getTvl,
   aaveExports,
@@ -263,8 +333,6 @@ function aaveV2Export(registry, { useOracle = false, baseCurrency, baseCurrencyU
 
       const addressProvider = await api.call({ abi: abiv2.getAddressesProvider, target: registry })
       const oracle = await api.call({ abi: abiv2.getPriceOracle, target: addressProvider })
-      console.log('addressProvider: ', addressProvider);
-      console.log('oracle: ', oracle);
 
       if (!currency) currency = await api.call({ abi: abiv2.BASE_CURRENCY, target: oracle })
       if (!unit) unit = await api.call({ abi: abiv2.BASE_CURRENCY_UNIT, target: oracle })
